@@ -8,6 +8,10 @@ A custom python pipeline for analyzing Illumina MiSeq data for Circular Permutat
 #######
 #######
 
+###
+CPP-SequenceProcessing.py processes the unselected and selected library MiSeq data and counts the insertions at every position within the gene(s) of interest being analayzed.
+###
+
 Inputs:
     
     Inputs are stored in the 'Data' directory 
@@ -37,3 +41,7 @@ Outputs:
     (2) Tagged counts
     (3) NuclotidePositionCounts
     (4) AminoAcidTerminiCounts 
+    
+###    
+CPP-Plots.py uses the processed sequencing data to plot insertional frequencies with respect to the protein sequence yielding plots in the 'Plot' directory for each possible reading frame. 
+###
