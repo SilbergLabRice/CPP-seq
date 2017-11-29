@@ -18,7 +18,7 @@ Inputs:
 
 
 Outputs:
-    Outpus are stored in the 'Outpus' directory
+    Outputs are stored in the 'Outpus' directory
     
     Outputs consist of:
     (1) Summary text file for all sequences analyzed, for each seqeuence 
