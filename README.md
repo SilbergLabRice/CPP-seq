@@ -6,6 +6,7 @@ A custom python pipeline for analyzing Illumina MiSeq data for Circular Permutat
 
 
 Inputs:
+    
     Inputs are stored in the 'Data' directory 
     
     Inputs consist of the following:
@@ -18,6 +19,7 @@ Inputs:
 
 
 Outputs:
+    
     Outputs are stored in the 'Outpus' directory
     
     Outputs consist of:
