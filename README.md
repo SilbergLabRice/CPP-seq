@@ -9,7 +9,9 @@ A custom python pipeline for analyzing Illumina MiSeq data for Circular Permutat
 #######
 
 ###
+###
 CPP-SequenceProcessing.py processes the unselected and selected library MiSeq data and counts the insertions at every position within the gene(s) of interest being analayzed.
+###
 ###
 
 Inputs:
