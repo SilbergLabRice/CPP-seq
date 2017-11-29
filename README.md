@@ -4,9 +4,8 @@ CPP-seq Analysis
 
 A custom python pipeline for analyzing Illumina MiSeq data for Circular Permutation Profiling. 
 
-########
-#Inputs:
-########
+
+Inputs:
     Inputs are stored in the 'Data' directory 
     
     Inputs consist of the following:
@@ -17,9 +16,8 @@ A custom python pipeline for analyzing Illumina MiSeq data for Circular Permutat
     (1) from unselected library
     (2) from selected library 
 
-#########
-#Outputs:
-#########
+
+Outputs:
     Outpus are stored in the 'Outpus' directory
     
     Outputs consist of:
