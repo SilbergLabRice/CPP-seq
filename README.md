@@ -1,7 +1,8 @@
 ######################
 ###CPP-seq Analysis###
 ######################
-A custom python pipeline for analyzing sequencing data for Circular Permutation Profiling. 
+
+A custom python pipeline for analyzing Illumina MiSeq data for Circular Permutation Profiling. 
 
 ########
 #Inputs:
