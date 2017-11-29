@@ -39,7 +39,6 @@ Outputs:
     (2) Tagged counts
     (3) NuclotidePositionCounts
     (4) AminoAcidTerminiCounts 
-    
-###    
+       
 CPP-Plots.py uses the processed sequencing data to plot insertional frequencies with respect to the protein sequence yielding plots in the 'Plot' directory for each possible reading frame. 
-###
+
