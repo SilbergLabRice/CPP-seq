@@ -21,7 +21,11 @@ Inputs:
     For each sequence in the variable region FASTA file you need two MiSeq FASTQ files 
     (1) from unselected library (e.g. TnAK_unselected.fastq)
     (2) from selected library (e.g. TnAK_selected.fastq)
-
+    
+    Example Variable region and Transposon FASTA files are included in the 'Data' directory 
+    Example MiSeq data can be found at: 
+        TnAK_unselected.fastq (https://www.ncbi.nlm.nih.gov/sra/SRX3427327)
+        TnAK_selected.fastq (https://www.ncbi.nlm.nih.gov/sra/SRR6327684)
 
 Outputs:
     
