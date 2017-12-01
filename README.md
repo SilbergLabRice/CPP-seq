@@ -29,7 +29,7 @@ Inputs:
 
 Outputs:
     
-    Outputs are stored in the 'Outpus' directory
+    Outputs are stored in the 'Outputs' directory
     
     Outputs consist of (11 files/gene):
     For each gene analyzed (3/gene)
