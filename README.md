@@ -48,8 +48,8 @@ CPP-Plots.py uses the processed sequencing data to plot insertional frequencies 
 
 ##  Authors
 
-* **Joshua T Atkinson - *NGS processing and analysis* 
-* **Quan Zhou - *Statistics script*
+* Joshua T Atkinson - *NGS processing and analysis* 
+* Quan Zhou - *Statistics script*
 
 ## License
 
