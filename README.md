@@ -48,14 +48,14 @@ CPP-Plots.py uses the processed sequencing data to plot insertional frequencies 
 
 Authors
 
-Joshua T Atkinson - Deep sequence processing and analysis 
-Quan Zhou - Statistics script
+    Joshua T Atkinson - Deep sequence processing and analysis 
+    Quan Zhou - Statistics script
 
 License
 
-This project is licensed under the MIT License - see the LICENSE.md file for details
+    This project is licensed under the MIT License - see the LICENSE.md file for details
 
 Acknowledgments
 
-Simon Anders and Wolfgang Huber for the DESeq program package (https://genomebiology.biomedcentral.com/articles/10.1186/gb-2010-11-10-r106) that was the basis of our statistical analysis. 
+    Simon Anders and Wolfgang Huber for the DESeq program package (https://genomebiology.biomedcentral.com/articles/10.1186/gb-2010-11-10-r106) that was the basis of our statistical analysis. 
 
