@@ -1,4 +1,5 @@
-import re, csv, numpy, math
+import re, csv, numpy, math, scipy
+import scipy.optimize
 import scipy.stats as ss
 import Bio.SeqIO
 
@@ -716,10 +717,11 @@ def FisherTest(geneName):
  
     index = selected['index']
     output_filename = 'Outputs/' + geneName + '_FisherTest.csv'
-    rows = zip(index, F1_pv, F2_pv, F3_pv)
+    #note fishers test the P-values are the same for both P/AP since contingency table
+    rows = zip(index, F1_pv, F2_pv, F3_pv, F1_pv, F2_pv, F3_pv)
     with open(output_filename, 'wb') as f:
         writer = csv.writer(f)
-        writer.writerow(['index', 'Frame1 log10(pvalue)', 'Frame2 log10(pvalue)', 'Frame3 log10(pvalue)'])
+        writer.writerow(['index', 'Frame1 P - log10(pvalue)', 'Frame2 P - log10(pvalue)', 'Frame3 P - log10(pvalue)', 'Frame1 AP - log10(pvalue)', 'Frame2 AP - log10(pvalue)', 'Frame3 AP - log10(pvalue)'])
         for row in rows:
             writer.writerow(row)
 
@@ -727,7 +729,345 @@ def FisherTest(geneName):
     print('\t' + output_filename)
     print('\n')
     
+def NBTest(geneName):    
+    geneName = geneName
+    print('Calculating Negative Binomial Test on ' + geneName + '...')
 
+    selected_file = 'Outputs/' + geneName + '_selected_ProteinNTerminiCounts.csv'
+    unselected_file = 'Outputs/' + geneName + '_unselected_ProteinNTerminiCounts.csv'
+
+
+    #import data
+    globals()[re.findall('\w.*_(\w.*)_\w.*.csv', selected_file)[0]] = numpy.genfromtxt(selected_file, delimiter = ',', names=True, dtype=None)
+    globals()[re.findall('\w.*_(\w.*)_\w.*.csv', unselected_file)[0]] = numpy.genfromtxt(unselected_file, delimiter = ',', names=True, dtype=None)
+
+    #loop over reading frames
+    for k in [1, 2, 3]:
+
+        #split data
+        unselected_index = []
+        US_P = []
+        US_AP = []
+        S_P = []
+        S_AP = []
+
+
+        for i in range(0, len(selected)):
+            unselected_index.append(unselected[i][0])
+            S_P.append(selected[i][k])
+            S_AP.append(selected[i][k+3])
+            US_P.append(unselected[i][k])
+            US_AP.append(unselected[i][k+3])
+
+        ################################
+        #####Parameter Estimation#######
+        ################################
+
+        #classify and remove low count positions (<20 reads) from unselected-AP for estimation 
+        remove_unobserved = True
+        observation_threshold = 20
+
+        if remove_unobserved == False:
+            US_AP_observed = range(0, len(unselected_index))
+
+        if remove_unobserved == True:
+            
+            US_AP_observed = [int(unselected_index[index])-1 for index, value in enumerate(US_AP) if value > observation_threshold]
+            US_AP_unobserved = [int(unselected_index[index])-1 for index, value in enumerate(US_AP) if value <= observation_threshold]
+
+        print('Postions with >20 reads: ' + str(len(US_AP_observed)) + '/' + str(len(unselected_index)))
+
+
+        ### Estimate Beta ###
+        AP_ratio = [S_AP[i]/US_AP[i] for i in US_AP_observed] 
+
+        beta = numpy.median(AP_ratio)
+        print('Beta: ' + str(beta))
+
+        ### Estimate Gamma ###
+        def fit_gamma(gamma): 
+            like = 0
+            for i in range(0,len(US_AP_observed)):
+                x = US_AP[US_AP_observed[i]]
+                y = S_AP[US_AP_observed[i]] 
+
+                def ll(m):
+                    r1 = m/(gamma-1)
+                    r2 = beta * r1
+                    p = 1/gamma
+
+                    l1 = scipy.stats.nbinom.logpmf(x, r1, p)
+                    l2 = scipy.stats.nbinom.logpmf(y, r2, p)
+
+                    return -(l1+l2)
+
+                #initial guess, matching R optimize function 
+                bnds = (1e-8, 1e6)
+                opt = scipy.optimize.minimize_scalar(ll, bounds = bnds, method = 'bounded') 
+                like = like + opt.fun
+
+            return like
+
+        #initial guess, matching R optimize function
+        bnds = (1.01, 100)
+        gamma = scipy.optimize.minimize_scalar(fit_gamma, bounds = bnds, method = 'bounded').x 
+
+        ### Output the estimated values for beta and gamma
+        print("Gamma = " + str(gamma))
+
+        ############## The functions for estimating mean and variance of log(FC) ###########
+        def mu_log(r, p, c):
+            mu = p * r / (1-p)
+            v = p * r / (1-p) / (1-p)
+            ml = numpy.log(mu + c) - v / 2 / (mu + c) / (mu + c)
+            return ml
+
+        def var_log(r, p, c):
+            mu = p * r / (1-p)
+            v = p*  r / (1-p) / (1-p)
+            m4 = p * r * (p * p+4 * p+3 * p * r+1) / ((1-p)**4)
+            v_log  = v/(mu + c)/(mu + c) + (m4 - v * v)/4/( (mu + c)**4)
+            return v_log
+
+        def mu_fc(us, p, c):
+            r1 = us/(gamma - 1)
+            r2 = r1 * beta
+            mu1 = mu_log(r1, p, c)
+            mu2 = mu_log(r2, p, c)
+            return mu2-mu1
+
+        def var_fc(us, p, c):
+            r1 = us/(gamma - 1)
+            r2 = r1 * beta
+            v1 = var_log(r1, p, c)
+            v2 = var_log(r2, p, c)
+            return v1+v2
+
+        def est_m(x, y):
+
+            if ([x, y] == [0, 0]):
+                return 0
+
+            def ll(m):
+                r1 = m/(gamma-1)
+                r2 = beta * r1
+                p = 1/gamma
+                l1 = scipy.stats.nbinom.logpmf(x, r1, p)
+                l2 = scipy.stats.nbinom.logpmf(y, r2, p)
+
+                return -(l1+l2)    
+            
+            bnds = (1e-8, 1e10)
+            opt = scipy.optimize.minimize_scalar(ll, bounds = bnds, method = 'bounded')
+
+            return opt.x
+
+        ## Function for computing p-value using negative binomial distribution ##
+        def compute_pv(x, y, m, beta, gamma):
+            r1 = m/(gamma - 1)
+            r2 = beta * r1
+            p = 1/gamma
+            l1 = scipy.stats.nbinom.logpmf(x, r1, p)
+            l2 = scipy.stats.nbinom.logpmf(y, r2, p)
+            ll = l1 + l2
+            sum_ll = ll 
+            sum_small = ll
+            s = x + y 
+            for j in range(0, int(s)):
+                if (j == y):
+                    continue
+                l1 = scipy.stats.nbinom.logpmf(s-j, r1, p)
+                l2 = scipy.stats.nbinom.logpmf(j, r2, p)
+                l = l1 + l2
+                sum_ll = numpy.logaddexp(sum_ll, l)
+                if l < ll:
+                    sum_small = numpy.logaddexp(sum_small, l)
+            log10_pv = (sum_small - sum_ll)/numpy.log(10)
+
+            return log10_pv 
+
+        def BH_correction_log(pv, alpha):
+            #Benjamani Hochberg correction for log10 pvalues
+            #sort pvalues and store originial index
+            pv_sort = numpy.sort(pv)
+            pv_index = numpy.argsort(pv)
+
+            #Calculate BH critical values
+            BH_critical = [(float(i)/len(pv_sort))*alpha for i in range(1, len(pv_sort)+1)]
+
+            #Count significant values 
+            largest_index = []
+            for i in range(0, len(pv_sort)):
+                if pv_sort[i] <= numpy.log10(BH_critical[i]):
+                    largest_index.append(i)
+
+            if len(largest_index) >= 1:
+                nsig = max(largest_index)+1
+            else:
+                nsig = 0
+
+            print(str(nsig) + ' values are significant after BH correction with a FDR of: ' + str(alpha))    
+
+
+            #Adjust pvalues and reindex to original index
+            pv_adj = []
+            for i in range(1, len(pv_sort)+1):
+                if i < len(pv_sort):
+                    if (pv_sort[i-1]+numpy.log10(float(len(pv_sort))/i)) <= (pv_sort[i]+numpy.log10(float(len(pv_sort))/(i+1))):
+                        pv_adj.append(pv_sort[i-1]+numpy.log10(float(len(pv_sort))/i))
+                    if (pv_sort[i-1]+numpy.log10(float(len(pv_sort))/i)) > (pv_sort[i]+numpy.log10(float(len(pv_sort))/(i+1))):
+                        pv_adj.append((pv_sort[i]+numpy.log10(float(len(pv_sort))/(i+1))))
+                if i == len(pv_sort):
+                    pv_adj.append(pv_sort[i-1]+numpy.log10(float(len(pv_sort))/i))
+
+            pv_adj_reindex = numpy.zeros(len(pv_index))
+            for i in range(0, len(pv_index)):
+                if float(pv[pv_index[i]]) == 0.0:
+                    pv_adj_reindex[pv_index[i]] = 0.0
+                if float(pv[pv_index[i]]) == 1.0:
+                    pv_adj_reindex[pv_index[i]] = 1.0
+                if float(pv[pv_index[i]]) != 0.0 and float(pv[pv_index[i]]) != 1.0: 
+                    pv_adj_reindex[pv_index[i]] = pv_adj[i]
+
+            return pv_adj_reindex
+
+        ################################
+        #### Mean & StDev Estimation ###
+        ################################
+
+        c = 1  ### Feel free to play with this parameter. It does influence the significance...
+        p = 1 - 1/gamma
+
+        #classify and remove low count positions (0 reads) from unselected-AP for estimation 
+        observation_threshold = 0
+        AP_sel_na = [int(unselected_index[index])-1 for index, value in enumerate(S_AP) if value == observation_threshold]
+        AP_unsel_na = [int(unselected_index[index])-1 for index, value in enumerate(US_AP) if value == observation_threshold]
+
+        na = list(set(AP_sel_na) & set(AP_unsel_na))
+
+        #if len(na) > 0 :
+        #    AP_sel = numpy.delete(S_AP, na)
+        #    AP_unsel = numpy.delete(US_AP, na)
+        
+        AP_sel = S_AP
+        AP_unsel = US_AP
+        
+        #adjust by constant 
+        AP_sel_fc = [i + c for i in AP_sel]
+        AP_unsel_fc = [i + c for i in AP_unsel]
+
+        #Calculate Fold Change
+        fc = [numpy.log2((AP_sel_fc[i]+c)/(AP_unsel_fc[i]+c)) for i in range(0, len(AP_sel))]
+
+        #estimate mean/stdev at each abundance level
+        m = []
+        mean_fc = []
+        sd_fc = []
+
+        for i in range(0,len(AP_sel)):
+            mean_est = est_m(AP_unsel[i], AP_sel[i])
+            m.append(mean_est)
+            mean_fc.append(mu_fc(mean_est, p, c))
+            sd_fc.append(numpy.sqrt(var_fc(mean_est, p, c)))
+
+        #log2 transform data for plotting
+        mean_fc = [i/numpy.log(2) for i in mean_fc]
+        sd_fc = [i/numpy.log(2) for i in sd_fc]
+
+        #sort for plotting mean/sd lines
+        data = numpy.array(zip(m, fc, mean_fc, sd_fc), dtype = [('m', 'float64'), ('fc', 'float64'), ('mean', 'float64'), ('sd', 'float64')])
+        data_ordered = numpy.sort(data, order = 'm')
+
+
+
+        ################################
+        ##### Calculating P-values #####
+        ################################
+
+        default_c = 0.5 ## this parameter is not that important 
+
+        #Copy Count data
+        AP_sel = S_AP
+        AP_unsel = US_AP
+        P_sel = S_P
+        P_unsel = US_P
+
+        #Calculate Fold Change log2(Selected/Unselected)
+        fc_ap = [numpy.log2((AP_sel[i]+c)/(AP_unsel[i]+c)) for i in range(0, len(AP_sel))]
+        fc_p = [numpy.log2((P_sel[i]+c)/(P_unsel[i]+c)) for i in range(0, len(P_unsel))]
+
+        #Containers for p values
+        pv_P = []
+        pv_AP = []
+
+        #calculate p-values 
+        for i in range(0, len(AP_sel)):
+            p1 = 0
+            p2 = 0
+
+            #Antiparallel p-value
+            if (AP_sel[i] + AP_unsel[i]) == 0:
+                p1 = 1.0 #'NA'
+                fc_ap[i] = -9
+
+            else:
+                fc1 = numpy.log((AP_sel[i] + c)/(AP_unsel[i] + c))
+                m1 = est_m(AP_unsel[i], AP_sel[i])
+                mu1 = mu_fc(m1, p, c)
+                v1 = var_fc(m1, p, c)
+                p1 = compute_pv(AP_unsel[i], AP_sel[i], m1, beta, gamma)
+
+            #Parallel p-value
+            if (P_sel[i] + P_unsel[i] == 0):
+                p2 = 1.0 #'NA'
+                fc_p[i] = -9
+
+            else: 
+                fc2 = numpy.log((P_sel[i] + c)/(P_unsel[i] + c))
+                m2 = est_m(P_unsel[i], P_sel[i])
+                mu2 = mu_fc(m2, p, c)
+                v2 = var_fc(m2, p, c)
+                p2 = compute_pv(P_unsel[i], P_sel[i], m2, beta, gamma)
+            
+            #Adjust no-longer oberserved positions
+            if AP_sel[i] == 0:
+                fc_ap[i] = -9
+            if P_sel[i] == 0:
+                fc_p[i] = -9
+
+            pv_AP.append(p1)
+            pv_P.append(p2)
+
+        #Multiple Comparison Correction using Benjamani-Hochberg 
+        sig_thresh = 0.01
+        stats_corrected_parallel = BH_correction_log(pv_P, alpha = sig_thresh)
+        stats_corrected_antiparallel = BH_correction_log(pv_AP, alpha = sig_thresh)
+
+        #Count significant pvalues
+        counter = 0
+        sig_thresh = -2
+        for i in stats_corrected_parallel:
+            if i <= sig_thresh:
+                counter = counter + 1
+
+        print('Look here significant P pv: ' + str(counter))
+        globals()['F' + str(k) + '_P_pv'] = stats_corrected_parallel
+        globals()['F' + str(k) + '_AP_pv'] = stats_corrected_antiparallel
+        globals()['F' + str(k) + '_abund'] = data_ordered['m']
+        globals()['F' + str(k) + '_mean'] = data_ordered['mean']
+        globals()['F' + str(k) + '_sd'] = data_ordered['sd']
+
+
+    pdat = zip(unselected_index, F1_P_pv, F2_P_pv, F3_P_pv, F1_AP_pv, F2_AP_pv, F3_AP_pv)
+    pdat.insert(0,('index', 'Frame1 P - log10(pvalue)', 'Frame2 P - log10(pvalue)', 'Frame3 P - log10(pvalue)', 'Frame1 AP - log10(pvalue)', 'Frame2 AP - log10(pvalue)', 'Frame3 AP - log10(pvalue)'))
+    
+    fit = zip(F1_abund, F1_mean, F1_sd, F2_abund, F2_mean, F2_sd, F3_abund, F3_mean, F3_sd)
+    fit.insert(0,('Frame1 - Abundance', 'Frame1 - mean', 'Frame1 - sd', 'Frame2 - Abundance', 'Frame2 - mean', 'Frame2 - sd', 'Frame3 - Abundance', 'Frame3 - mean', 'Frame3 - sd'))
+    
+    #Print P-vales to txt 
+    numpy.savetxt('Outputs/' + geneName + '_NBTest.csv', pdat, fmt = ('%s'), delimiter = ',')
+    numpy.savetxt('Outputs/' + geneName + '_NBFit.csv', fit, fmt = ('%s'), delimiter = ',')
+    
 def GenerateTransposonRecognitionSites(geneName, gene_fwd, gene_rev):
     print('Generating all possible five and eleven bp long fragments...')
     
