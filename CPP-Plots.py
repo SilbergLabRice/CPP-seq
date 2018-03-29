@@ -1,6 +1,7 @@
 import numpy
 import matplotlib
 import scipy.stats as linstats
+import statsmodels.sandbox.stats.multicomp as pcorrect 
 matplotlib.use('Agg')
 from matplotlib import pyplot as pp
 from matplotlib import cm
@@ -9,7 +10,7 @@ from matplotlib import ticker
 import matplotlib.patches as mpatches
 
 matplotlib.rcParams['font.family'] = 'sans-serif'
-matplotlib.rcParams['font.sans-serif'] = ['Segoe UI']
+matplotlib.rcParams['font.sans-serif'] = ['Arial']
 matplotlib.rcParams['svg.fonttype'] = 'none'
 matplotlib.rcParams['ytick.major.size'] = 5
 matplotlib.rcParams['xtick.major.size'] = 5
@@ -23,11 +24,11 @@ def find_nearest(array,value):
 
 
 
-genes = ['TnAK']#, 'GsAK', 'BsAK', 'BgAK']
+genes = ['TnAK']
 
 for sample in genes:
     print('Plotting: ' + sample + '\n')
-    figWidth = 12 #12 for squarish, 22 for wide
+    figWidth = 22 #12 for squarish, 22 for wide
     figHeight = 24
     
     fig = pp.figure(figsize=(figWidth, figHeight))
@@ -46,14 +47,22 @@ for sample in genes:
     fold = numpy.genfromtxt(fold_file, delimiter = ',', names=True, dtype=None)
     
     #Stats 
-    stats_chosen = 'FoldTest'
+    sig_thresh = -2
+    correction = 'BH' #BH or Bonferroni 
+    stats_chosen = 'NBTest'
     if stats_chosen == 'FoldTest':
         stats_file = 'Outputs/' + sample + '_FoldTest.csv'
         stats = numpy.genfromtxt(stats_file, delimiter = ',', names=True, dtype=None)
     if stats_chosen == 'FisherTest':
         stats_file = 'Outputs/' + sample + '_FisherTest.csv'
         stats = numpy.genfromtxt(stats_file, delimiter = ',', names=True, dtype=None)
+    if stats_chosen == 'NBTest':
+        stats_file = 'Outputs/' + sample + '_NBTest.csv'
+        stats = numpy.genfromtxt(stats_file, delimiter = ',', names=True, dtype=None)
     
+    #NBStats fit
+    fit_file = 'Outputs/' + sample + '_NBFit.csv'
+    fit = numpy.genfromtxt(fit_file, delimiter = ',', names=True, dtype=None)
     
     #Split CSVs
     selected_index = []
@@ -133,7 +142,28 @@ for sample in genes:
         stats_F1_antiparallel.append(i[4])
         stats_F2_antiparallel.append(i[5])
         stats_F3_antiparallel.append(i[6])
-        
+     
+    fit_abund_F1 = []
+    fit_mean_F1 = []
+    fit_sd_F1 = []
+    fit_abund_F2 = []
+    fit_mean_F2 = []
+    fit_sd_F2 = []
+    fit_abund_F3 = []
+    fit_mean_F3 = []
+    fit_sd_F3 = []
+    
+    for i in fit:
+        fit_abund_F1.append(i[0])
+        fit_mean_F1.append(i[1])
+        fit_sd_F1.append(i[2])
+        fit_abund_F2.append(i[3])
+        fit_mean_F2.append(i[4])
+        fit_sd_F2.append(i[5])
+        fit_abund_F3.append(i[6])
+        fit_mean_F3.append(i[7])
+        fit_sd_F3.append(i[8])
+
     #Generate colormap for statistics 
     sig_range = numpy.linspace(-300, -2, 50)
     rgb = cm.get_cmap(pp.get_cmap('Greys'))(numpy.linspace(0.5, 1.0, 50))[numpy.newaxis,:,:3][0][::-1]
@@ -155,34 +185,62 @@ for sample in genes:
         stats_frame_antiparallel =  globals()['stats_F' + str(i)+'_antiparallel']
         fold_frame_parallel = globals()['fold_F' + str(i) + '_parallel']
         fold_frame_antiparallel = globals()['fold_F' + str(i) + '_antiparallel']
-           
+        fit_abund = globals()['fit_abund_F' + str(i)]
+        fit_mean = globals()['fit_mean_F' + str(i)]
+        fit_sd = globals()['fit_sd_F' + str(i)]
         
+        stats_corrected_parallel = stats_frame_parallel
+        stats_corrected_antiparallel = stats_frame_antiparallel
+        #Adjust p-values
+        #if correction == 'BH':
+            #Perfrom Benjamani-Hochberg P-value correction
+         #    pvalues = [10**x for x in stats_frame_parallel]
+         #    stats_corrected_parallel = pcorrect.multipletests(pvalues, alpha = sig_thresh, method = 'fdr_bh')[1]
+            
+          #   pvalues_antiparallel = [10**x for x in stats_frame_antiparallel]
+          #   stats_corrected_antiparallel = pcorrect.multipletests(pvalues_antiparallel, alpha = sig_thresh, method = 'fdr_bh')[1]
+            
+        # if correction == 'Bonferroni':
+            #Perform Bonferroni correction
+          #   pvalues = [10**x for x in stats_frame_parallel]
+          #   stats_corrected_parallel = pcorrect.multipletests(pvalues, alpha = sig_thresh, method = 'bonferroni')[1]
+            
+           #  pvalues_antiparallel = [10**x for x in stats_frame_antiparallel]
+           #  stats_corrected_antiparallel = pcorrect.multipletests(pvalues_antiparallel, alpha = sig_thresh, method = 'bonferroni')[1]       
 
+        #Generate colors based on p-values
         stat_colors = []
         line_widths = []
         edge_colors = []
-        for stat_sample in stats_frame_parallel:
-            if stat_sample > -2:
-                stat_colors.append([1,0,0,0.4])
+        sig_count = 0
+
+        for stat_sample in stats_corrected_parallel:
+            if stat_sample > sig_thresh:
+                stat_colors.append([1,0,0,1])
                 line_widths.append(0)
                 edge_colors.append([1,0,0,1])
-            if stat_sample <= -2:
+            if stat_sample <= sig_thresh:
+                sig_count = sig_count + 1
                 stat_colors.append(rgb[int(numpy.where(sig_range == find_nearest(sig_range, stat_sample))[0])])
                 line_widths.append(0)
                 edge_colors.append(rgb[int(numpy.where(sig_range == find_nearest(sig_range, stat_sample))[0])])
-                
+        print('There are ' + str(sig_count) + ' significantly enriched P variants')     
+
         stat_colors_antiparallel = []
         line_widths_antiparallel = []
         edge_colors_antiparallel = []
-        for stat_sample in stats_frame_antiparallel:
-            if stat_sample > -2:
-                stat_colors_antiparallel.append([1,0,0,0.4])
+        sig_count = 0 
+        for stat_sample in stats_corrected_antiparallel:
+            if stat_sample > sig_thresh:
+                stat_colors_antiparallel.append([1,0,0,1])
                 line_widths_antiparallel.append(0)
                 edge_colors_antiparallel.append([1,0,0,1])
-            if stat_sample <= -2:
+            if stat_sample <= sig_thresh:
+                sig_count = sig_count + 1
                 stat_colors_antiparallel.append(rgb[int(numpy.where(sig_range == find_nearest(sig_range, stat_sample))[0])])
                 line_widths_antiparallel.append(0)
                 edge_colors_antiparallel.append(rgb[int(numpy.where(sig_range == find_nearest(sig_range, stat_sample))[0])])
+        print('There are ' + str(sig_count) + ' significantly enriched AP variants')  
        
         ###REMOVE Unobserved Sequences###
         remove_unobserved = True
@@ -231,10 +289,9 @@ for sample in genes:
             #unobserved in at least one insertion directions in either of the two libraries, causes stastical issues with Fisher's test
             unobserved_P_AP = list(set(unobserved_US_S_P) | set(unobserved_US_S_AP))
 
-            print('sum unobserved in either direction: ' + str(len(unobserved_P_AP)))
-            print('sum of observed/unobserved: ' + str(len(observed_US_P_ind+unobserved_US_P_ind)))
-            print('sum of observed/unobserved: ' + str(len(observed_P_AP+unobserved_P_AP)))
-            print('unobserved in either P or AP' + str(len(unobserved_P_AP)))
+            print('sum unobserved in both orientations: ' + str(len(list(set(unobserved_US_S_P) & set(unobserved_US_S_AP)))))
+            print('sum unobserved in either orientations (cause Fisher Issues): ' + str(len(unobserved_P_AP)))
+
 
 
             fold_frame_parallel = [fold_frame_parallel[x-1] for x in observed_P_AP]
@@ -245,45 +302,61 @@ for sample in genes:
         ######################
         ##RAW count plotting##
         ######################
-        
+        P_color = [142./255, 68./255, 173./255, 1.0] #[41./255, 128./255, 185./255, 1.0]
+        AP_color = [39./255, 174./255, 96./255, 1.0] #[192./255, 57./255, 43./255, 1.0] 
+
+        ##Unselected P##
         ax = pp.subplot(rows,len(frames),count)
-        ax.bar(unselected_index, unsel, color = ['#00ff66'], width = 1, linewidth = 0, label = 'Parallel')
-        ax.scatter(unobserved_US_P_ind, [0.01*(max(unsel)*1.05)]*len(unobserved_US_P_ind), s=2, facecolors='none', edgecolors='k', lw=0.25, label = 'Unobserved, $\emptyset$ = ' + str(len(unobserved_US_P_ind)) + '/' + str(len(unselected_index)))
-        
+
+        ax.bar(unselected_index, unsel, color = P_color, width = 1, linewidth = 0, label = 'Parallel')
+        ax.bar(unobserved_US_P_ind, [-0.05*(max(unsel)*1.05)]*len(unobserved_US_P_ind), bottom = -0.025*(max(unsel)*1.05), color = (0,0,0,1), width = 1, linewidth = 0, label = 'Unobserved, $\emptyset$ = ' + str(len(unobserved_US_P_ind)) + '/' + str(len(unselected_index)))
+        ax.plot(range(0, int(max(unselected_index))+1) , [0]*(len(unselected_index)+1), linewidth = 0.75, color = (0,0,0,1))
+
         ax.set_xlim([0, max(unselected_index)])
-        ax.set_ylim([-0.1, max(unsel)*1.05])
+        ax.set_ylim([-0.1*(max(unsel)*1.05), max(unsel)*1.05])
         ax.tick_params(direction = 'out', top = 'off', right = 'off')
         ax.legend(loc = 'upper center', fontsize = 8)
         ax.set_title('Frame: ' + str(count))
         ax.set_ylabel("Unselected Counts")
         ax.set_xlabel('Residue Position')
         
+        ##Selected P##
         ax2 = pp.subplot(rows,len(frames),count+len(frames))
-        ax2.bar(selected_index, sel, color = ['#00ff66'], width = 1, linewidth = 0, label = 'Parallel') #rgb [0.40,1,0.50,1]
-        ax2.scatter(unobserved_S_P_ind, [0.01*(max(sel)*1.05)]*len(unobserved_S_P_ind),s=2, facecolors='none', edgecolors='k', lw=0.25, label = 'Unobserved, $\emptyset$ = ' + str(len(unobserved_S_P_ind)) + '/' + str(len(selected_index)))
-        
+
+        ax2.bar(selected_index, sel, color = P_color, width = 1, linewidth = 0, label = 'Parallel') 
+        ax2.bar(unobserved_S_P_ind, [-0.05*(max(sel)*1.05)]*len(unobserved_S_P_ind), bottom = -0.025*(max(sel)*1.05), color = (0,0,0,1), width = 1, linewidth = 0, label = 'Unobserved, $\emptyset$ = ' + str(len(unobserved_S_P_ind)) + '/' + str(len(selected_index)))
+        ax2.plot(range(0, int(max(unselected_index))+1) , [0]*(len(unselected_index)+1), linewidth = 0.75, color = (0,0,0,1))
+
         ax2.set_xlim([0, max(selected_index)])
-        ax2.set_ylim([-0.1, max(sel)*1.05])
+        ax2.set_ylim([-0.1*(max(sel)*1.05), max(sel)*1.05])
         ax2.tick_params(direction = 'out', top = 'off', right = 'off')
         ax2.legend(loc = 'upper center', fontsize = 8)
         ax2.set_ylabel("Selected Counts")
         ax2.set_xlabel('Residue Position')
 
+        ##Unselected AP##
         ax = pp.subplot(rows,len(frames),count+len(frames)*2)
-        ax.bar(unselected_index, unsel_ap, color = ['#ff0000'], width = 1, linewidth = 0, label = 'Antiparallel')
-        ax.scatter(unobserved_US_AP_ind, [0.01*(max(unsel_ap)*1.05)]*len(unobserved_US_AP_ind),s=2, facecolors='none', edgecolors='k', lw=0.25, label = 'Unobserved, $\emptyset$ = ' + str(len(unobserved_US_AP_ind)) + '/' + str(len(unselected_index)))
+
+        ax.bar(unselected_index, unsel_ap, color = AP_color, width = 1, linewidth = 0, label = 'Antiparallel')
+        ax.bar(unobserved_US_AP_ind, [-0.05*(max(unsel_ap)*1.05)]*len(unobserved_US_AP_ind), bottom = -0.025*(max(unsel_ap)*1.05), color = (0,0,0,1), width = 1, linewidth = 0, label = 'Unobserved, $\emptyset$ = ' + str(len(unobserved_US_AP_ind)) + '/' + str(len(unselected_index)))
+        ax.plot(range(0, int(max(unselected_index))+1) , [0]*(len(unselected_index)+1), linewidth = 0.75, color = (0,0,0,1))
+
         ax.set_xlim([0, max(unselected_index)])
-        ax.set_ylim([-0.1, max(unsel_ap)*1.05])
+        ax.set_ylim([-0.1*(max(unsel_ap)*1.05), max(unsel_ap)*1.05])
         ax.tick_params(direction = 'out', top = 'off', right = 'off')
         ax.legend(loc = 'upper center', fontsize = 8)
         ax.set_ylabel("Unselected Counts")
         ax.set_xlabel('Residue Position')
 
+        ##Selected AP##
         ax2 = pp.subplot(rows,len(frames),count+len(frames)*3)
-        ax2.bar(selected_index, sel_ap, color = ['#ff0000'], width = 1, linewidth = 0, label = 'Antiparallel')
-        ax2.scatter(unobserved_S_AP_ind, [0.01*(max(sel_ap)*1.05)]*len(unobserved_S_AP_ind), s=2, facecolors='none', edgecolors='k', lw=0.25, label = 'Unobserved, $\emptyset$ = ' + str(len(unobserved_S_AP_ind)) + '/' + str(len(selected_index)))
+
+        ax2.bar(selected_index, sel_ap, color = AP_color, width = 1, linewidth = 0, label = 'Antiparallel')
+        ax2.bar(unobserved_S_AP_ind, [-0.05*(max(sel_ap)*1.05)]*len(unobserved_S_AP_ind), bottom = -0.025*(max(sel_ap)*1.05), color = (0,0,0,1), width = 1, linewidth = 0, label = 'Unobserved, $\emptyset$ = ' + str(len(unobserved_S_AP_ind)) + '/' + str(len(selected_index)))
+        ax2.plot(range(0, int(max(unselected_index))+1) , [0]*(len(unselected_index)+1), linewidth = 0.75, color = (0,0,0,1))
+
         ax2.set_xlim([0, max(selected_index)])
-        ax2.set_ylim([-0.1, max(sel_ap)*1.05])
+        ax2.set_ylim([-0.1*(max(sel_ap)*1.05), max(sel_ap)*1.05])
         ax2.tick_params(direction = 'out', top = 'off', right = 'off')
         ax2.legend(loc = 'upper center', fontsize = 8)
         ax2.set_ylabel("Selected Counts")
@@ -295,7 +368,7 @@ for sample in genes:
         ################################
         ax3 = pp.subplot(rows, len(frames),count+len(frames)*4)
         bins = numpy.logspace(0,5,50)
-        ax3.hist([unsel_ap,unsel], bins = bins, histtype = 'barstacked', color = [(1,0,0,1),(0,1,0.4,1)], label = 'Unselected - Antiparallel')
+        ax3.hist([unsel_ap,unsel], bins = bins, histtype = 'barstacked', color = [AP_color,P_color], label = 'Unselected - Antiparallel')
         #ax3.hist(unsel, bins = bins, histtype = 'barstacked', color = (0,1,0.4,1), label = 'Unselected - Parallel')
         ax3.set_xscale('symlog')
         ax3.set_ylabel("Unique variants (#)")
@@ -310,7 +383,7 @@ for sample in genes:
         
         ax3 = pp.subplot(rows, len(frames),count+len(frames)*5)
         bins = numpy.logspace(0,5,50)
-        ax3.hist([sel_ap, sel], bins = bins, histtype = 'barstacked', color = [(1,0,0,1),(0,1,0.4,1)], label = 'Selected - Antiparallel')
+        ax3.hist([sel_ap, sel], bins = bins, histtype = 'barstacked', color = [AP_color, P_color], label = 'Selected - Antiparallel')
         #ax3.hist(sel, bins = bins, histtype = 'step', color = (0,1,0.4,1), label = 'Selected - Parallel')
         ax3.set_xscale('symlog')
         ax3.set_ylabel("Unique variants (#)")
@@ -336,10 +409,10 @@ for sample in genes:
         edge_colors = [edge_colors[x-1] for x in observed_P_AP]
         
 
-        print('Minimum Selected P count: ' + str(min(sel)))
-        print('Minimum Selected AP count: '+ str(min(unsel)))
-        print('Minimum Unselected P count: '+ str(min(sel_ap)))
-        print('Minimum Unselected AP count: '+ str(min(unsel_ap)))
+        #print('Minimum Selected P count: ' + str(min(sel)))
+        #print('Minimum Selected AP count: '+ str(min(unsel)))
+        #print('Minimum Unselected P count: '+ str(min(sel_ap)))
+        #print('Minimum Unselected AP count: '+ str(min(unsel_ap)))
         
         ##Antiparallel vs Parallel 
         ax3 = pp.subplot(rows, len(frames),count+len(frames)*6)
@@ -362,12 +435,12 @@ for sample in genes:
         xmax = int(max([max_s, max_us])*2)
         ax3.plot(range(-1,xmax), equal_fn(range(-1,xmax)), '-', color = '#000000', ms = 0)
         #unselected
-        ax3.plot(range(-1,xmax), unsel_fit_fn(range(-1,xmax)), '--', color = '#6600ff', ms = 0)
+        ax3.plot(range(-1,xmax), unsel_fit_fn(range(-1,xmax)), '--', color = '#ff0000', ms = 0)
         #selected
-        ax3.plot(range(-1,xmax), sel_fit_fn(range(-1,xmax)), '--', color = '#ff6600', ms = 0)
+        ax3.plot(range(-1,xmax), sel_fit_fn(range(-1,xmax)), '--', color = '#2980b9', ms = 0)
 
-        ax3.text(max([max_s, max_us])*200, 1250, ['y = ' + str(round(unsel_fit[0],3)) + '*x + ' + str(round(unsel_fit[1],3)) + '\n R^2: ' + str(round(unsel_fit[2]**2,3))][0], ha = 'center', va = 'center', fontsize = 8, color = '#6600ff')
-        ax3.text(max([max_s, max_us])*200, 10000, ['y = ' + str(round(sel_fit[0],3)) + '*x + ' + str(round(sel_fit[1],3)) + '\n R^2: ' + str(round(sel_fit[2]**2,3))][0], ha = 'center', va = 'center', fontsize = 8, color = '#ff6600')
+        ax3.text(max([max_s, max_us])*200, 1250, ['y = ' + str(round(unsel_fit[0],3)) + '*x + ' + str(round(unsel_fit[1],3)) + '\n R^2: ' + str(round(unsel_fit[2]**2,3))][0], ha = 'center', va = 'center', fontsize = 8, color = '#ff0000')
+        ax3.text(max([max_s, max_us])*200, 10000, ['y = ' + str(round(sel_fit[0],3)) + '*x + ' + str(round(sel_fit[1],3)) + '\n R^2: ' + str(round(sel_fit[2]**2,3))][0], ha = 'center', va = 'center', fontsize = 8, color = '#2980b9')
         
         #ax3.scatter(unsel, sel, color = [1./250.,166./250.,17./250.], label = 'Functional')
         #ax3.scatter(unsel_ap, sel_ap, color = [0.69, 0.13, 0.13], label = 'Non-Functional')
@@ -398,9 +471,9 @@ for sample in genes:
         #equality
         ax3.plot(range(-1,xmax), equal_fn(range(-1,xmax)), '-', color = '#000000', ms = 0)
         #parallel
-        ax3.plot(range(-1,xmax), p_fit_fn(range(-1,xmax)), '--', color = '#00ff66', ms = 0)
+        ax3.plot(range(-1,xmax), p_fit_fn(range(-1,xmax)), '--', color = P_color, ms = 0)
         #antiparallel
-        ax3.plot(range(-1,xmax), ap_fit_fn(range(-1,xmax)), '--', color = '#ff0000', ms = 0)
+        ax3.plot(range(-1,xmax), ap_fit_fn(range(-1,xmax)), '--', color = AP_color, ms = 0)
         
         ax3.set_xscale('symlog')
         ax3.set_yscale('symlog')
@@ -411,29 +484,39 @@ for sample in genes:
         ax3.set_ylabel("Selected Counts")
         ax3.set_xlabel('Unselected Counts')
         
-        ax3.text(max([max_s, max_us])*200, 1250, ['y = ' + str(round(ap_fit[0],3)) + '*x + ' + str(round(ap_fit[1],3)) + '\n R^2: ' + str(round(ap_fit[2]**2,3))][0], ha = 'center', va = 'center', fontsize = 8, color = '#ff0000')
-        ax3.text(max([max_s, max_us])*200, 10000, ['y = ' + str(round(p_fit[0],3)) + '*x + ' + str(round(p_fit[1],3)) + '\n R^2: ' + str(round(p_fit[2]**2,3))][0], ha = 'center', va = 'center', fontsize = 8, color = '#00ff66')
+        ax3.text(max([max_s, max_us])*200, 1250, ['y = ' + str(round(ap_fit[0],3)) + '*x + ' + str(round(ap_fit[1],3)) + '\n R^2: ' + str(round(ap_fit[2]**2,3))][0], ha = 'center', va = 'center', fontsize = 8, color = AP_color)
+        ax3.text(max([max_s, max_us])*200, 10000, ['y = ' + str(round(p_fit[0],3)) + '*x + ' + str(round(p_fit[1],3)) + '\n R^2: ' + str(round(p_fit[2]**2,3))][0], ha = 'center', va = 'center', fontsize = 8, color = P_color)
 
-        ######################
-        #Fold-change plotting#
-        ######################
-        #replace nans with -9 for plotting fold change
-        fold_frame_parallel = [-9.5 if numpy.isnan(x) else x for x in fold_frame_parallel]
-        fold_frame_antiparallel = [-9.5 if numpy.isnan(x) else x for x in fold_frame_antiparallel]    
-        
+        ##############################
+        #Fold-change Profile plotting#
+        ##############################
+        ymin = numpy.nanmin(fold_frame_parallel)*1.1   
+        #replace nans with min for plotting fold change
+        fold_frame_parallel = [(0.9*(ymin*1.1)) if numpy.isnan(x) else x for x in fold_frame_parallel]
+          
+        #updata nans with the min fold change as the limit of detection
+        # ymin = min(min(fold_frame_antiparallel), min(fold_frame_parallel))
+        # fold_frame_parallel = [ymin if x == (0.9*(ymin*1.1)) else x for x in fold_frame_parallel]
+        # fold_frame_antiparallel = [ymin if x == (0.9*(ymin*1.1)) else x for x in fold_frame_antiparallel]    
+
+        ##Parallel plot##
         ax3 = pp.subplot(rows, len(frames),count+len(frames)*8)
         #ax3.bar(selected_index, fold_frame_antiparallel, color = 'r', width = 1, linewidth = 0, label = 'Antiparallel')
         
+        #plot fold-change profile 
         ax3.bar(observed_P_AP, fold_frame_parallel, color = stat_colors, width = 1, linewidth = 0, label = 'Parallel')
-        ax3.scatter(unobserved_US_S_P, [0]*len(unobserved_US_S_P), s=2, facecolors='none', edgecolors='k', lw=0.25, label = 'Unobserved, $\emptyset$ = ' + str(len(unobserved_US_S_P)) + '/' + str(len(selected_index)))
-        #ax3.scatter(unobserved_US_S_AP, [0]*len(unobserved_US_S_AP), s=1,  color = [1, 0, 0, 0.4], label = 'Unobserved, n = ' + str(len(unobserved_US_S_AP)) + '/' + str(len(selected_index)))
-        
-        ax3.axhline(y=-7, xmin=0, xmax=max(selected_index), linewidth=8, color = [0, 0, 0, 0.4], label = 'No Longer Observed')
+
+        #plot unobserved positions 
+        ax3.bar(unobserved_US_S_P, [0.05*ymin]*len(unobserved_US_S_P), bottom = ymin + (0.025*(ymin)), color = (0,0,0,1), width = 1, linewidth = 0, label = 'Unobserved, $\emptyset$ = ' + str(len(unobserved_US_S_P)) + '/' + str(len(selected_index)), clip_on = False)
+        ax3.plot(range(0, int(max(unselected_index))+1) , [0.9*(ymin*1.1)]*(len(unselected_index)+1), linewidth = 0.75, color = (0,0,0,1))
+
+        #gray bar for no longer obsereved 
+        # ax3.axhline(y=-6.5, xmin=0, xmax=max(selected_index), linewidth=5, color = [0, 0, 0, 0.4], label = 'No Longer Observed')
         
         #axis adjustments
         ax3.axhline(y=0, xmin=0, xmax=max(selected_index), linewidth=0.25, color = [0, 0, 0, 1])
         ax3.set_xlim([0, max(selected_index)+1])
-        ax3.set_ylim([-7, 7])
+        ax3.set_ylim([ymin*1.1, 7])
         ax3.tick_params(direction = 'out', top = 'off', right = 'off')
         ax3.yaxis.set_major_locator(ticker.MultipleLocator(2)) #tickspacing
         ax3.legend(loc='center left', bbox_to_anchor=(1.25, 0.5) , fontsize=7)
@@ -454,16 +537,26 @@ for sample in genes:
         ax3.set_ylabel("Fold Change (log2)")
         ax3.set_xlabel('Residue Position')
 
+        ##Antiparallel plot##
+        ymin = numpy.nanmin(fold_frame_antiparallel)*1.1
+        fold_frame_antiparallel = [(0.9*(ymin*1.1)) if numpy.isnan(x) else x for x in fold_frame_antiparallel]  
         ax3 = pp.subplot(rows, len(frames),count+len(frames)*9)
+
+        #plot fold-change profile 
         ax3.bar(observed_P_AP, fold_frame_antiparallel, color = stat_colors_antiparallel, width = 1, linewidth = 0, label = 'Antiparallel')
-        ax3.scatter(unobserved_US_S_AP, [0]*len(unobserved_US_S_AP), s=2, facecolors='none', edgecolors='k', lw=0.25, label = 'Unobserved, $\emptyset$ = ' + str(len(unobserved_US_S_AP)) + '/' + str(len(selected_index)))
         
-        ax3.axhline(y=-7, xmin=0, xmax=max(selected_index), linewidth=8, color = [0, 0, 0, 0.4], label = 'No Longer Observed')
+        #plot unobserved positions 
+        ax3.bar(unobserved_US_S_AP, [0.05*ymin]*len(unobserved_US_S_AP), bottom = ymin + (0.025*(ymin)), color = (0,0,0,1), width = 1, linewidth = 0, label = 'Unobserved, $\emptyset$ = ' + str(len(unobserved_US_S_AP)) + '/' + str(len(selected_index)), clip_on = False)
+        ax3.plot(range(0, int(max(unselected_index))+1) , [0.9*(ymin*1.1)]*(len(unselected_index)+1), linewidth = 0.75, color = (0,0,0,1))
+
+        
+        #gray bar for no longer obsereved 
+        # ax3.axhline(y=-6.5, xmin=0, xmax=max(selected_index), linewidth=5, color = [0, 0, 0, 0.4], label = 'No Longer Observed')
         
         #axis adjustments
         ax3.axhline(y=0, xmin=0, xmax=max(selected_index), linewidth=0.25, color = [0, 0, 0, 1])
         ax3.set_xlim([0, max(selected_index)+1])
-        ax3.set_ylim([-7, 7])
+        ax3.set_ylim([ymin*1.1, 7])
         ax3.tick_params(direction = 'out', top = 'off', right = 'off')
         ax3.yaxis.set_major_locator(ticker.MultipleLocator(2)) #tickspacing
         ax3.legend(loc='center left', bbox_to_anchor=(1.25, 0.5) , fontsize=7)
@@ -508,6 +601,12 @@ for sample in genes:
         ax3.scatter(unsel, fold_frame_parallel, color = stat_colors, edgecolors = edge_colors, label = 'Parallel')
         ax3.scatter(unsel_ap, fold_frame_antiparallel, facecolors='none', edgecolors='k', label = 'Antiparallel')
 
+        ax3.plot(fit_abund, fit_mean, '-', color = (0,0,0,1), label = "Mean")
+        mean_plusSD = [fit_mean[j] + 2*fit_sd[j] for j in range(0, len(fit_mean))]
+        mean_minusSD = [fit_mean[j] - 2*fit_sd[j] for j in range(0, len(fit_mean))]
+        
+        ax3.plot(fit_abund, mean_plusSD, '--', color = (0,0,0,1), label = "Mean + 2$\sigma$")
+        #ax3.plot(fit_abund, mean_minusSD, '--', color = (0,0,0,1), label = "Mean - 2$\sigma$")
         print('# of parallel above 2sigma: ' + str(len(greaterThanBackground)) + '\n')
         
         xmin, xmax = ax3.get_xlim()
@@ -530,7 +629,3 @@ for sample in genes:
     fig.subplots_adjust(wspace=1)
     figname = 'Plots/' + sample + '_Correlation Plot.svg'
     pp.savefig(figname, bbox_inches="tight")
-
-
-
-    
