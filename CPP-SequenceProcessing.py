@@ -52,7 +52,7 @@ for gene in gene_names:
     #Analyzing unselected and selected counts 
     filenames = ['Data/' + gene_name + '_unselected.fastq', 'Data/' + gene_name + '_selected.fastq']
     
-    for file in filenames:
+    #for file in filenames:
         #RAW data processing
         util.TransposonGeneJunctionExtraction(file, five_fw_tag, five_rev_tag, three_fw_tag, three_rev_tag, kmer=kmer_param)
         util.AdjacentMerExtraction(file, five_fw_tag, five_rev_tag, three_fw_tag, three_rev_tag, kmer=kmer_param)
@@ -68,6 +68,6 @@ for gene in gene_names:
     #Statistics using Parallel v. Antiparallel Reference
     #Fisher's exact test (requires reads at every positon)
     util.FisherTest(gene_name)
-    #Fold Change test (estimates variance from AP reads)
-    
+    util.NBTest(gene_name)
+
 f.close() #close summary file 
