@@ -9,7 +9,7 @@ print('Processing Sequences . . .')
 f = open("Outputs/Batch Process Summary.txt", 'w')
 sys.stdout = f
 
-gene_names = []
+gene_names = ['TnAK']
 variable = 'Data/variable.fasta'
 transposon = 'Data/transposon.fasta'
 
@@ -52,7 +52,7 @@ for gene in gene_names:
     #Analyzing unselected and selected counts 
     filenames = ['Data/' + gene_name + '_unselected.fastq', 'Data/' + gene_name + '_selected.fastq']
     
-    #for file in filenames:
+    for file in filenames:
         #RAW data processing
         util.TransposonGeneJunctionExtraction(file, five_fw_tag, five_rev_tag, three_fw_tag, three_rev_tag, kmer=kmer_param)
         util.AdjacentMerExtraction(file, five_fw_tag, five_rev_tag, three_fw_tag, three_rev_tag, kmer=kmer_param)
