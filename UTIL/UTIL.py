@@ -155,7 +155,7 @@ def PositionExtraction(filename, geneName, gene_fwd, gene_rev):
     
     filename = 'Outputs/' + re.findall('\w.*/(\w.*).fastq', filename)[0] + '_raw.csv'
     
-    possibleSites = numpy.genfromtxt('Outputs/' + geneName + '_PossibleSites.csv', delimiter = ',', names=True, dtype=None)
+    possibleSites = numpy.genfromtxt('Outputs/' + geneName + '_PossibleSites.csv', delimiter = ',', names=True, dtype=None, encoding=None)
     possibleIndex = []
     possibleElevenmer = []
     possibleOligo = []
@@ -166,7 +166,7 @@ def PositionExtraction(filename, geneName, gene_fwd, gene_rev):
         possibleElevenmer.append(i[3])
 
 
-    data = numpy.genfromtxt(filename, delimiter = ',', names=True, dtype=None)
+    data = numpy.genfromtxt(filename, delimiter = ',', names=True, dtype=None, encoding = None)
     tag1 = data['11mer'][data['Tag'] == 'AF'] #Fwd is the only way to make a real protein
     tag2 = data['11mer'][data['Tag'] == 'AR'] #Revcomp is the only way to make a real protein
     tag3 = data['11mer'][data['Tag'] == 'BF'] #Fwd is the only way to make a real protein
@@ -506,7 +506,7 @@ def NucleotideInsertionSiteCounter(file, gene_fwd):
     print('Counting Transposon Insertion Positions...')
     filename = 'Outputs/' + re.findall('\w.*/(\w.*).fastq', file)[0] + '_positions.csv'
     
-    possibleSites = numpy.genfromtxt('Outputs/' + re.findall('\w.*/(\w.*)_\w.*.fastq', file)[0] + '_PossibleSites.csv', delimiter = ',', names=True, dtype=None)
+    possibleSites = numpy.genfromtxt('Outputs/' + re.findall('\w.*/(\w.*)_\w.*.fastq', file)[0] + '_PossibleSites.csv', delimiter = ',', names=True, dtype=None, encoding=None)
     possibleOligo = []
     possibleFivemer = []
     possibleElevenmer = []
@@ -517,7 +517,7 @@ def NucleotideInsertionSiteCounter(file, gene_fwd):
         possibleFivemer.append(i[2])
         possibleElevenmer.append(i[3])
     
-    data = numpy.genfromtxt(filename, delimiter = ',', names=True, dtype=None)
+    data = numpy.genfromtxt(filename, delimiter = ',', names=True, dtype=None, encoding=None)
     functional = data[data['direction'] == 'F']
     nonfunctional = data[data['direction'] == 'NF']
     
@@ -562,7 +562,7 @@ def AminoAcidStartSiteCounter(file, gene_fwd):
     print('Counting new N-termini...')
     filename = 'Outputs/' + re.findall('\w.*/(\w.*).fastq', file)[0] + '_positions.csv'
     
-    data = numpy.genfromtxt(filename, delimiter = ',', names=True, dtype=None)
+    data = numpy.genfromtxt(filename, delimiter = ',', names=True, dtype=None, encoding=None)
     functional = data[data['direction'] == 'F']
     nonfunctional = data[data['direction'] == 'NF']
     nomatch = data[data['direction'] == 'No Match'] 

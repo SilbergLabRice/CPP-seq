@@ -1,19 +1,36 @@
+#Check version
+import sys
+
+if sys.version_info[0] > 2:
+    raise "Must be using Python 2.7"
+
+#Dependencies
 import re, sys
 import UTIL.UTIL as util
 import Bio.SeqIO
-import sys
+
 
 
 #Summary File output 
 print('Processing Sequences . . .')
+output_filename = "Outputs/Batch Process Summary.txt"
+#Check if Directory exists, if not make one 
+import os
+import errno
+if not os.path.exists(os.path.dirname(output_filename)):
+    try:
+        os.makedirs(os.path.dirname(output_filename))
+    except OSError as exc: # Guard against race condition
+        if exc.errno != errno.EEXIST:
+            raise
+
 f = open("Outputs/Batch Process Summary.txt", 'w')
 sys.stdout = f
 
-gene_names = ['TnAK']
 variable = 'Data/variable.fasta'
 transposon = 'Data/transposon.fasta'
 
-
+gene_names = []
 for record in Bio.SeqIO.parse(variable, "fasta"):
     gene_names.append(record.id)
 

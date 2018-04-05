@@ -1,3 +1,9 @@
+#Check version
+import sys
+
+if sys.version_info[0] > 2:
+    raise "Must be using Python 2.7"
+
 import numpy
 import matplotlib
 import scipy.stats as linstats
@@ -628,4 +634,15 @@ for sample in genes:
     pp.tight_layout()
     fig.subplots_adjust(wspace=1)
     figname = 'Plots/' + sample + '_Correlation Plot.svg'
+
+    #Check if Directory exists, if not make one 
+    import os
+    import errno
+    if not os.path.exists(os.path.dirname(figname)):
+        try:
+            os.makedirs(os.path.dirname(figname))
+        except OSError as exc: # Guard against race condition
+            if exc.errno != errno.EEXIST:
+                raise
+                
     pp.savefig(figname, bbox_inches="tight")
